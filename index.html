@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Laufband Trainingsplan mit Timer & Fortschritt</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --border: #d1d5db;
+      --walk: #10b981;
+      --run: #f97316;
+      --rest: #64748b;
+      --danger: #dc2626;
+      --done: #16a34a;
+      --done-soft: #dcfce7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      color: white;
+      padding: 26px;
+      border-radius: 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+    }
+
+    header h1 { margin: 0 0 8px; font-size: 30px; }
+    header p { margin: 4px 0; opacity: 0.95; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    select, button {
+      width: 100%;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 11px 12px;
+      background: white;
+    }
+
+    select { margin-bottom: 14px; }
+
+    button {
+      cursor: pointer;
+      border: none;
+      font-weight: bold;
+      color: white;
+      background: var(--accent);
+    }
+
+    button:hover { background: var(--accent-dark); }
+    button.secondary { background: #475569; }
+    button.secondary:hover { background: #334155; }
+    button.danger { background: var(--danger); }
+    button.danger:hover { background: #b91c1c; }
+    button.success { background: var(--done); }
+    button.success:hover { background: #15803d; }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .button-row.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .timer-card {
+      text-align: center;
+      padding: 26px 18px;
+    }
+
+    .phase {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      color: white;
+      font-weight: bold;
+      margin-bottom: 12px;
+      background: var(--rest);
+    }
+
+    .phase.walk { background: var(--walk); }
+    .phase.run { background: var(--run); }
+    .phase.done { background: var(--done); }
+
+    .timer {
+      font-size: clamp(52px, 11vw, 96px);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin: 8px 0 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 14px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 18px 0 8px;
+    }
+
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.25s linear;
+    }
+
+    .steps {
+      margin-top: 18px;
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 42px 1fr 88px;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      background: white;
+      font-size: 14px;
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step.active {
+      background: #dbeafe;
+      font-weight: bold;
+    }
+
+    .dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: inline-block;
+      background: var(--rest);
+    }
+
+    .dot.walk { background: var(--walk); }
+    .dot.run { background: var(--run); }
+
+    .info {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .info div {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .info strong { display: block; font-size: 13px; color: var(--muted); }
+    .info span { font-size: 18px; font-weight: bold; }
+
+    .note {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
+    .warning {
+      border-left: 5px solid #f59e0b;
+      background: #fff7ed;
+      margin-top: 18px;
+    }
+
+    .completion {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #f8fafc;
+      text-align: left;
+    }
+
+    .completion.done {
+      background: var(--done-soft);
+      border-color: #86efac;
+    }
+
+    .completion strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .progress-list {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .progress-week {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #ffffff;
+    }
+
+    .progress-week-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .progress-units {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .unit-chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 8px;
+      font-size: 13px;
+      text-align: center;
+      background: #f8fafc;
+    }
+
+    .unit-chip.done {
+      background: var(--done-soft);
+      border-color: #86efac;
+      color: #166534;
+      font-weight: bold;
+    }
+
+    @media (max-width: 850px) {
+      .grid { grid-template-columns: 1fr; }
+      .button-row, .button-row.two, .info, .progress-units { grid-template-columns: 1fr; }
+      header h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Laufband Trainingsplan mit Timer & Fortschritt</h1>
+      <p><strong>Ziel:</strong> 10 km am Stück laufen können</p>
+      <p><strong>Person:</strong> 46 Jahre, 92 kg · <strong>Standard:</strong> 1 % Steigung, Warm-up/Cooldown 0–1 %</p>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Training auswählen</h2>
+
+        <label for="weekSelect">Woche</label>
+        <select id="weekSelect"></select>
+
+        <label for="unitSelect">Einheit</label>
+        <select id="unitSelect"></select>
+
+        <div class="completion" id="completionBox">
+          <strong>Status der ausgewählten Einheit</strong>
+          <span id="completionText">Noch nicht abgeschlossen.</span>
+        </div>
+
+        <div class="info">
+          <div><strong>Dauer</strong><span id="totalDuration">–</span></div>
+          <div><strong>Gehen</strong><span>4–5 km/h</span></div>
+          <div><strong>Joggen</strong><span>6–7 km/h</span></div>
+        </div>
+
+        <div class="button-row">
+          <button id="startBtn">Start</button>
+          <button id="pauseBtn" class="secondary">Pause</button>
+          <button id="resetBtn" class="danger">Reset</button>
+        </div>
+
+        <div class="button-row two">
+          <button id="markDoneBtn" class="success">Einheit als erledigt markieren</button>
+          <button id="resetProgressBtn" class="danger">Fortschritt zurücksetzen</button>
+        </div>
+
+        <p class="note">
+          Fortschritt wird lokal im Browser gespeichert. Er bleibt nach dem Neuladen erhalten, wird aber nicht online synchronisiert.
+          Die Steigung bleibt bewusst konstant: Warm-up/Cooldown 0–1 %, alle Hauptteile 1 %. Sie ändert sich während der Einheiten nicht automatisch.
+        </p>
+
+        <div class="steps" id="steps"></div>
+
+        <h2 style="margin-top: 20px;">Fortschritt</h2>
+        <div class="progress-list" id="progressList"></div>
+      </section>
+
+      <section class="card timer-card">
+        <div id="phaseLabel" class="phase">Bereit</div>
+        <div id="timer" class="timer">00:00</div>
+        <div id="currentStep" class="sub">Wähle Woche und Einheit aus.</div>
+
+        <div class="progress">
+          <div id="progressBar" class="bar"></div>
+        </div>
+
+        <div class="info">
+          <div><strong>Aktueller Satz</strong><span id="stepCounter">–</span></div>
+          <div><strong>Verbleibend gesamt</strong><span id="remainingTotal">–</span></div>
+          <div><strong>Status</strong><span id="status">bereit</span></div>
+        </div>
+
+        <section class="card warning">
+          <h2>Wichtig</h2>
+          <p>
+            Wenn Knie, Schienbein, Achillessehne oder Hüfte schmerzen: abbrechen oder auf Gehen reduzieren.
+            Muskelkater ist normal, stechender Schmerz nicht.
+          </p>
+        </section>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const min = (m) => m * 60;
+    const STORAGE_KEY = "laufbandTrainingsplanFortschritt_v1";
+
+    function defaultIncline(step) {
+      // Standard: 1 %. Warm-up/Cooldown bewusst flacher möglich.
+      if (step.label && (step.label.toLowerCase().includes("aufwärmen") || step.label.toLowerCase().includes("cooldown"))) {
+        return "0–1 %";
+      }
+      return "1 %";
+    }
+
+    function defaultSpeed(step) {
+      return step.type === "run" ? "6–7 km/h" : "4–5 km/h";
+    }
+
+    function repeatSteps(pattern, times) {
+      const result = [];
+      for (let i = 0; i < times; i++) {
+        pattern.forEach(s => result.push({...s, repeat: i + 1}));
+      }
+      return result;
+    }
+
+    const plans = [
+      { week: 1, units: [
+        { title: "Einheit 1 – Einstieg", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(1)}, {type:"walk", label:"Gehen", sec:min(4)}], 5)] },
+        { title: "Einheit 2 – Einstieg", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(1)}, {type:"walk", label:"Gehen", sec:min(4)}], 5)] },
+        { title: "Einheit 3 – Locker", steps: [{type:"walk", label:"Zügig gehen", sec:min(20)}, {type:"run", label:"Optional leicht joggen", sec:min(5)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 2, units: [
+        { title: "Einheit 1 – 2/3 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(2)}, {type:"walk", label:"Gehen", sec:min(3)}], 5)] },
+        { title: "Einheit 2 – 2/3 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(2)}, {type:"walk", label:"Gehen", sec:min(3)}], 5)] },
+        { title: "Einheit 3 – Locker", steps: [{type:"walk", label:"Gehen", sec:min(10)}, ...repeatSteps([{type:"run", label:"Locker joggen", sec:min(2)}, {type:"walk", label:"Gehen", sec:min(3)}], 4)] }
+      ]},
+      { week: 3, units: [
+        { title: "Einheit 1 – 3/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(3)}, {type:"walk", label:"Gehen", sec:min(2)}], 5), {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 2 – 3/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(3)}, {type:"walk", label:"Gehen", sec:min(2)}], 5), {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 3 – Locker", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Locker joggen", sec:min(3)}, {type:"walk", label:"Gehen", sec:min(2)}], 5), {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 4, units: [
+        { title: "Einheit 1 – 5/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(5)}, {type:"walk", label:"Gehen", sec:min(2)}], 4), {type:"walk", label:"Cooldown", sec:min(2)}] },
+        { title: "Einheit 2 – 5/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(5)}, {type:"walk", label:"Gehen", sec:min(2)}], 4), {type:"walk", label:"Cooldown", sec:min(2)}] },
+        { title: "Einheit 3 – Ausdauer ruhig", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Locker joggen", sec:min(5)}, {type:"walk", label:"Gehen", sec:min(2)}], 4), {type:"walk", label:"Cooldown", sec:min(2)}] }
+      ]},
+      { week: 5, units: [
+        { title: "Einheit 1 – 8/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(8)}, {type:"walk", label:"Gehen", sec:min(2)}], 3), {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 2 – 4/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(4)}, {type:"walk", label:"Gehen", sec:min(2)}], 5), {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 3 – Locker 40", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Locker joggen", sec:min(25)}, {type:"walk", label:"Cooldown", sec:min(10)}] }
+      ]},
+      { week: 6, units: [
+        { title: "Einheit 1 – 10/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(10)}, {type:"walk", label:"Gehen", sec:min(2)}], 3)] },
+        { title: "Einheit 2 – 5/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(5)}, {type:"walk", label:"Gehen", sec:min(2)}], 4), {type:"walk", label:"Cooldown", sec:min(7)}] },
+        { title: "Einheit 3 – Ruhig 40", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Ruhig joggen", sec:min(30)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 7, units: [
+        { title: "Einheit 1 – 15/3 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(15)}, {type:"walk", label:"Gehen", sec:min(3)}], 2), {type:"walk", label:"Cooldown", sec:min(4)}] },
+        { title: "Einheit 2 – 6/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(6)}, {type:"walk", label:"Gehen", sec:min(2)}], 4), {type:"walk", label:"Cooldown", sec:min(8)}] },
+        { title: "Einheit 3 – Lang ruhig", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Ruhig joggen", sec:min(35)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 8, units: [
+        { title: "Einheit 1 – 20 min durchlaufen", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Durchlaufen", sec:min(20)}, {type:"walk", label:"Gehen", sec:min(15)}, {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 2 – 8/2 Intervalle", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(8)}, {type:"walk", label:"Gehen", sec:min(2)}], 3), {type:"walk", label:"Locker gehen", sec:min(10)}] },
+        { title: "Einheit 3 – Gleichmäßig", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Gleichmäßig joggen", sec:min(30)}, {type:"walk", label:"Cooldown", sec:min(10)}] }
+      ]},
+      { week: 9, units: [
+        { title: "Einheit 1 – 50 min", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Durchlaufen", sec:min(30)}, {type:"walk", label:"Locker gehen/joggen", sec:min(10)}, {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 2 – flotte Abschnitte", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Etwas flotter joggen", sec:min(5)}, {type:"walk", label:"Locker", sec:min(3)}], 4), {type:"walk", label:"Cooldown", sec:min(8)}] },
+        { title: "Einheit 3 – lange ruhig", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Lange ruhige Einheit", sec:min(40)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 10, units: [
+        { title: "Einheit 1 – 50 min", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Durchlaufen", sec:min(35)}, {type:"walk", label:"Cooldown", sec:min(10)}] },
+        { title: "Einheit 2 – leicht variabel", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, ...repeatSteps([{type:"run", label:"Joggen", sec:min(7)}, {type:"walk", label:"Locker", sec:min(2)}], 4), {type:"walk", label:"Cooldown", sec:min(4)}] },
+        { title: "Einheit 3 – ruhig 50", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Ruhige Ausdauer", sec:min(40)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 11, units: [
+        { title: "Einheit 1 – 55 min", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Durchlaufen", sec:min(40)}, {type:"walk", label:"Cooldown", sec:min(10)}] },
+        { title: "Einheit 2 – locker 45", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Locker joggen", sec:min(30)}, {type:"walk", label:"Cooldown", sec:min(10)}] },
+        { title: "Einheit 3 – lange Einheit", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Gleichmäßig laufen", sec:min(45)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]},
+      { week: 12, units: [
+        { title: "Einheit 1 – 60 min", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Ruhig laufen", sec:min(50)}, {type:"walk", label:"Cooldown", sec:min(5)}] },
+        { title: "Einheit 2 – Erholung", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"Sehr locker joggen", sec:min(30)}, {type:"walk", label:"Cooldown", sec:min(10)}] },
+        { title: "Einheit 3 – 10-km-Zieleinheit", steps: [{type:"walk", label:"Aufwärmen", sec:min(5)}, {type:"run", label:"10-km-Zieleinheit / ruhig laufen", sec:min(50)}, {type:"walk", label:"Cooldown", sec:min(5)}] }
+      ]}
+    ];
+
+    const weekSelect = document.getElementById("weekSelect");
+    const unitSelect = document.getElementById("unitSelect");
+    const stepsEl = document.getElementById("steps");
+    const timerEl = document.getElementById("timer");
+    const phaseLabel = document.getElementById("phaseLabel");
+    const currentStepEl = document.getElementById("currentStep");
+    const progressBar = document.getElementById("progressBar");
+    const totalDurationEl = document.getElementById("totalDuration");
+    const stepCounterEl = document.getElementById("stepCounter");
+    const remainingTotalEl = document.getElementById("remainingTotal");
+    const statusEl = document.getElementById("status");
+    const completionBox = document.getElementById("completionBox");
+    const completionText = document.getElementById("completionText");
+    const progressList = document.getElementById("progressList");
+
+    let audioContext = null;
+    let currentPlan = null;
+    let stepIndex = 0;
+    let remainingInStep = 0;
+    let totalRemaining = 0;
+    let totalDuration = 0;
+    let running = false;
+    let intervalId = null;
+    let completed = loadCompleted();
+
+    function format(sec) {
+      sec = Math.max(0, Math.round(sec));
+      const m = Math.floor(sec / 60).toString().padStart(2, "0");
+      const s = (sec % 60).toString().padStart(2, "0");
+      return `${m}:${s}`;
+    }
+
+    function selectedKey() {
+      const week = plans[weekSelect.selectedIndex].week;
+      const unit = unitSelect.selectedIndex + 1;
+      return `w${week}-e${unit}`;
+    }
+
+    function loadCompleted() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveCompleted() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
+    }
+
+    function markCompleted() {
+      completed[selectedKey()] = {
+        done: true,
+        completedAt: new Date().toISOString()
+      };
+      saveCompleted();
+      updateCompletionUI();
+      renderProgressList();
+      populateUnits();
+    }
+
+    function clearProgress() {
+      const ok = confirm("Wirklich den gesamten gespeicherten Fortschritt zurücksetzen?");
+      if (!ok) return;
+      completed = {};
+      saveCompleted();
+      updateCompletionUI();
+      renderProgressList();
+      populateUnits();
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleDateString("de-DE") + " " + d.toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit"});
+    }
+
+    function updateCompletionUI() {
+      const item = completed[selectedKey()];
+      if (item?.done) {
+        completionBox.classList.add("done");
+        completionText.textContent = `✅ Abgeschlossen am ${formatDate(item.completedAt)}`;
+      } else {
+        completionBox.classList.remove("done");
+        completionText.textContent = "Noch nicht abgeschlossen.";
+      }
+    }
+
+    function renderProgressList() {
+      progressList.innerHTML = "";
+      plans.forEach((p) => {
+        const weekDiv = document.createElement("div");
+        weekDiv.className = "progress-week";
+        const doneCount = p.units.filter((_, i) => completed[`w${p.week}-e${i+1}`]?.done).length;
+        weekDiv.innerHTML = `
+          <div class="progress-week-title">Woche ${p.week}: ${doneCount}/3 erledigt</div>
+          <div class="progress-units">
+            ${p.units.map((_, i) => {
+              const key = `w${p.week}-e${i+1}`;
+              const done = completed[key]?.done;
+              return `<div class="unit-chip ${done ? "done" : ""}">${done ? "✅" : "○"} Einheit ${i+1}</div>`;
+            }).join("")}
+          </div>
+        `;
+        progressList.appendChild(weekDiv);
+      });
+    }
+
+    function beep(type = "switch") {
+      if (!audioContext) return;
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.frequency.value = type === "run" ? 880 : type === "walk" ? 520 : 700;
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.2, audioContext.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.25);
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.28);
+    }
+
+    function getSelectedPlan() {
+      const week = plans[weekSelect.selectedIndex];
+      return week.units[unitSelect.selectedIndex];
+    }
+
+    function getTotal(steps) {
+      return steps.reduce((sum, s) => sum + s.sec, 0);
+    }
+
+    function populateWeeks() {
+      weekSelect.innerHTML = "";
+      plans.forEach((p, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        const doneCount = p.units.filter((_, i) => completed[`w${p.week}-e${i+1}`]?.done).length;
+        opt.textContent = `Woche ${p.week} (${doneCount}/3 erledigt)`;
+        weekSelect.appendChild(opt);
+      });
+    }
+
+    function populateUnits() {
+      const current = unitSelect.selectedIndex >= 0 ? unitSelect.selectedIndex : 0;
+      unitSelect.innerHTML = "";
+      const week = plans[weekSelect.selectedIndex];
+      week.units.forEach((u, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        const key = `w${week.week}-e${idx+1}`;
+        const done = completed[key]?.done ? "✅ " : "";
+        opt.textContent = `${done}${idx + 1}: ${u.title}`;
+        unitSelect.appendChild(opt);
+      });
+      unitSelect.selectedIndex = Math.min(current, week.units.length - 1);
+      updateCompletionUI();
+    }
+
+    function renderSteps() {
+      currentPlan = getSelectedPlan();
+      totalDuration = getTotal(currentPlan.steps);
+      totalRemaining = totalDuration;
+      remainingInStep = currentPlan.steps[0].sec;
+      stepIndex = 0;
+      running = false;
+      clearInterval(intervalId);
+
+      totalDurationEl.textContent = format(totalDuration);
+      timerEl.textContent = format(remainingInStep);
+      remainingTotalEl.textContent = format(totalRemaining);
+      progressBar.style.width = "0%";
+      statusEl.textContent = "bereit";
+      phaseLabel.textContent = "Bereit";
+      phaseLabel.className = "phase";
+      currentStepEl.textContent = currentPlan.title;
+      stepCounterEl.textContent = `1 / ${currentPlan.steps.length}`;
+
+      stepsEl.innerHTML = "";
+      currentPlan.steps.forEach((s, i) => {
+        const div = document.createElement("div");
+        div.className = "step" + (i === 0 ? " active" : "");
+        div.innerHTML = `
+          <span><span class="dot ${s.type}"></span></span>
+          <span>
+            ${i + 1}. ${s.label}${s.repeat ? ` <small>(Satz ${s.repeat})</small>` : ""}
+            <br><small>Tempo: ${defaultSpeed(s)} · Steigung: ${defaultIncline(s)}</small>
+          </span>
+          <span>${format(s.sec)}</span>
+        `;
+        stepsEl.appendChild(div);
+      });
+      updateCompletionUI();
+    }
+
+    function updateUI() {
+      const step = currentPlan.steps[stepIndex];
+      timerEl.textContent = format(remainingInStep);
+      remainingTotalEl.textContent = format(totalRemaining);
+      stepCounterEl.textContent = `${stepIndex + 1} / ${currentPlan.steps.length}`;
+      currentStepEl.textContent = `${step.label} · Tempo: ${defaultSpeed(step)} · Steigung: ${defaultIncline(step)}`;
+      phaseLabel.textContent = step.type === "run" ? "Joggen" : "Gehen";
+      phaseLabel.className = "phase " + (step.type === "run" ? "run" : "walk");
+      statusEl.textContent = running ? "läuft" : "pausiert";
+      const done = totalDuration - totalRemaining;
+      progressBar.style.width = `${Math.min(100, (done / totalDuration) * 100)}%`;
+
+      Array.from(stepsEl.children).forEach((el, i) => {
+        el.classList.toggle("active", i === stepIndex);
+      });
+    }
+
+    function nextStep() {
+      stepIndex++;
+      if (stepIndex >= currentPlan.steps.length) {
+        running = false;
+        clearInterval(intervalId);
+        timerEl.textContent = "00:00";
+        currentStepEl.textContent = "Training abgeschlossen.";
+        phaseLabel.textContent = "Fertig";
+        phaseLabel.className = "phase done";
+        statusEl.textContent = "fertig";
+        progressBar.style.width = "100%";
+        beep("switch");
+        markCompleted();
+        return;
+      }
+      remainingInStep = currentPlan.steps[stepIndex].sec;
+      beep(currentPlan.steps[stepIndex].type);
+      updateUI();
+    }
+
+    function tick() {
+      if (!running) return;
+      remainingInStep--;
+      totalRemaining--;
+      if (remainingInStep <= 0 || totalRemaining <= 0) {
+        nextStep();
+      } else {
+        updateUI();
+      }
+    }
+
+    document.getElementById("startBtn").addEventListener("click", async () => {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === "suspended") await audioContext.resume();
+
+      if (!currentPlan) renderSteps();
+      if (!running) {
+        running = true;
+        beep(currentPlan.steps[stepIndex].type);
+        updateUI();
+        clearInterval(intervalId);
+        intervalId = setInterval(tick, 1000);
+      }
+    });
+
+    document.getElementById("pauseBtn").addEventListener("click", () => {
+      running = false;
+      updateUI();
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      renderSteps();
+    });
+
+    document.getElementById("markDoneBtn").addEventListener("click", () => {
+      markCompleted();
+    });
+
+    document.getElementById("resetProgressBtn").addEventListener("click", () => {
+      clearProgress();
+      populateWeeks();
+      populateUnits();
+      renderSteps();
+    });
+
+    weekSelect.addEventListener("change", () => {
+      populateUnits();
+      renderSteps();
+    });
+
+    unitSelect.addEventListener("change", renderSteps);
+
+    populateWeeks();
+    populateUnits();
+    renderSteps();
+    renderProgressList();
+  </script>
+</body>
+</html>
